@@ -1,0 +1,81 @@
+- hosts: web
+  become: yes
+  tasks:
+    - name: Install pip
+      apt:
+        name: python3-pip
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install pip
+      yum:
+        name: python3-pip
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Install boto3
+      pip:
+        name: boto3
+
+    - name: Install AWS CLI
+      pip:
+        name: awscli
+
+- hosts: launched
+  become: yes
+  tasks:
+    - name: Ensure apt is installed
+      apt:
+        name: apt
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Update and upgrade apt packages
+      apt:
+        update_cache: yes
+        upgrade: dist
+      when: ansible_os_family == "Debian"
+
+    - name: Update and upgrade yum packages
+      yum:
+        name: "*"
+        state: latest
+      when: ansible_os_family == "RedHat"
+
+    - name: Install Docker on Debian-based systems
+      apt:
+        name: docker.io
+        state: present
+      when: ansible_os_family == "Debian"
+
+    - name: Install Docker on RedHat-based systems
+      yum:
+        name: docker
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: Ensure Docker service is enabled and started
+      systemd:
+        name: docker
+        enabled: yes
+        state: started
+
+    - name: Copy application files to the target host
+      copy:
+        src: /mnt/c/Users/user/OneDrive/Desktop/project/application/
+        dest: /home/ec2-user/application/
+        owner: ec2-user
+        group: ec2-user
+        mode: '0755'
+
+    - name: Build Docker image
+      command: docker build -t sample-app /home/ec2-user/application
+      args:
+        chdir: /home/ec2-user/application
+
+    - name: Stop any running containers on port 80
+      shell: |
+        docker ps --filter "publish=80" --format "{{ '{{' }}.ID{{ '}}' }}" | xargs -r docker stop
+
+    - name: Run Docker container
+      command: docker run -d -p 80:80 sample-app

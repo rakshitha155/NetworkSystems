@@ -1,0 +1,22 @@
+- hosts: all
+  become: yes
+  tasks:
+    - name: Copy application files to the target host
+      copy:
+        src: /mnt/c/Users/user/OneDrive/Desktop/project/application/
+        dest: /home/ec2-user/application/
+        owner: ec2-user
+        group: ec2-user
+        mode: '0755'
+
+    - name: Build Docker image
+      command: docker build -t sample-app /home/ec2-user/application
+      args:
+        chdir: /home/ec2-user/application
+
+    - name: Stop any running containers on port 80
+      shell: |
+        docker ps --filter "publish=80" --format "{{ '{{' }}.ID{{ '}}' }}" | xargs -r docker stop
+
+    - name: Run Docker container
+      command: docker run -d -p 80:80 sample-app
